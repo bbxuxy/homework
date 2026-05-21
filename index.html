@@ -1,0 +1,386 @@
+```html
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TaskXP - ระบบบันทึกงานเกมภารกิจสุดล้ำ</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts (Prompt & Kanit for beautiful Thai UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Animate.css for smooth animations -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+  <!-- Firebase Legacy Compat SDKs (Perfect for standalone HTML/JS) -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
+
+  <style>
+    body {
+      font-family: 'Prompt', 'Kanit', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+    
+    /* Smooth transitions */
+    .page-transition {
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .hidden-page {
+      opacity: 0;
+      transform: translateY(15px);
+      pointer-events: none;
+      position: absolute;
+      width: 100%;
+      height: 0;
+      overflow: hidden;
+    }
+
+    .active-page {
+      opacity: 1;
+      transform: translateY(0);
+      position: relative;
+      height: auto;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Glow effects */
+    .glow-indigo {
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col justify-between overflow-x-hidden antialiased select-none">
+
+  <!-- ================= HEADER NAVIGATION ================= -->
+  <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <!-- 3-line menu button (Drawer Trigger) -->
+      <button id="menu-btn" class="text-slate-200 hover:text-indigo-400 active:scale-95 transition-transform p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700/80 focus:outline-none">
+        <i class="fa-solid fa-bars text-xl w-6 h-6 flex items-center justify-center"></i>
+      </button>
+      <h1 class="text-lg font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">TaskXP Tracker</h1>
+    </div>
+    
+    <!-- User Level & EXP Badge on top header -->
+    <div onclick="switchPage('missions')" class="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-800 border border-indigo-500/30 px-3 py-1.5 rounded-full cursor-pointer transition-all duration-300 active:scale-95">
+      <i class="fa-solid fa-crown text-amber-400 animate-bounce"></i>
+      <span class="text-xs font-semibold text-slate-300">Lv.<span id="header-level">1</span></span>
+      <div class="w-12 bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+        <div id="header-exp-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-500" style="width: 20%"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= DRAWER MENU (SLIDE OUT PANEL) ================= -->
+  <div id="drawer-backdrop" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300"></div>
+  <aside id="drawer" class="fixed top-0 left-0 z-50 h-full w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out flex flex-col justify-between">
+    <div>
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-indigo-400">
+            <i class="fa-solid fa-graduation-cap text-xl"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-slate-200">เมนูนำทาง</h2>
+            <p class="text-xs text-slate-400">จัดการชีวิตและการเรียน</p>
+          </div>
+        </div>
+        <button id="close-drawer" class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Drawer Links -->
+      <nav class="p-4 space-y-2">
+        <button onclick="switchPage('dashboard')" class="drawer-link flex items-center gap-4 w-full px-4 py-3.5 rounded-xl text-left font-medium transition-all group hover:bg-indigo-500/10 hover:text-indigo-400">
+          <i class="fa-solid fa-chart-pie text-lg text-slate-400 group-hover:text-indigo-400 transition-colors"></i>
+          <span>หน้าหลัก / งานค้างปัจจุบัน</span>
+        </button>
+        <button onclick="switchPage('all-subjects')" class="drawer-link flex items-center gap-4 w-full px-4 py-3.5 rounded-xl text-left font-medium transition-all group hover:bg-indigo-500/10 hover:text-indigo-400">
+          <i class="fa-solid fa-folder-open text-lg text-slate-400 group-hover:text-indigo-400 transition-colors"></i>
+          <span>รายการงานค้างทั้งหมด</span>
+        </button>
+        <button onclick="switchPage('missions')" class="drawer-link flex items-center gap-4 w-full px-4 py-3.5 rounded-xl text-left font-medium transition-all group hover:bg-emerald-500/10 hover:text-emerald-400">
+          <i class="fa-solid fa-gamepad text-lg text-slate-400 group-hover:text-emerald-400 transition-colors"></i>
+          <span>เกมภารกิจสะสม EXP</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="p-4 border-t border-slate-800 bg-slate-950/40 text-center">
+      <p class="text-[10px] text-slate-500 font-mono">TASKXP • Realtime DB Powered</p>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN CONTENT PANEL ================= -->
+  <main class="flex-1 overflow-y-auto px-4 py-6 max-w-lg mx-auto w-full relative">
+
+    <!-- ================= PAGE 1: DASHBOARD (งานค้างปัจจุบัน) ================= -->
+    <section id="page-dashboard" class="page-transition active-page space-y-6">
+      
+      <!-- Counter Stats Panel -->
+      <div class="bg-gradient-to-br from-slate-900 to-indigo-950 border border-slate-800 glow-indigo rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 opacity-5 text-indigo-400 pointer-events-none">
+          <i class="fa-solid fa-hourglass-half text-9xl"></i>
+        </div>
+        
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-sm font-semibold text-slate-400 uppercase tracking-wider">สถานะรายงานความสำเร็จ</span>
+          <span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full">เรียลไทม์</span>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 text-center divide-x divide-slate-800">
+          <div class="space-y-1">
+            <p class="text-xs text-slate-400">งานค้างปัจจุบัน</p>
+            <p class="text-4xl font-extrabold text-rose-500 animate__animated animate__pulse animate__infinite" id="stat-pending">0</p>
+            <p class="text-[10px] text-slate-500">รายการ</p>
+          </div>
+          <div class="space-y-1">
+            <p class="text-xs text-slate-400">สำเร็จแล้ว</p>
+            <p class="text-4xl font-extrabold text-emerald-400" id="stat-completed">0</p>
+            <p class="text-[10px] text-slate-500">รายการ</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Urgent Task Card Container -->
+      <div class="space-y-4">
+        <h3 class="text-md font-bold text-slate-300 flex items-center gap-2 pl-1">
+          <span class="w-1.5 h-4 bg-rose-500 rounded-full"></span>
+          งานค้างอันดับต้นๆ (ส่งด่วนที่สุด)
+        </h3>
+
+        <!-- Mid-screen Showcase Frame -->
+        <div id="urgent-task-frame" class="min-h-[220px] flex items-center justify-center">
+          <!-- Content injected dynamically via JS -->
+          <div class="animate-pulse bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full text-center text-slate-400">
+            <i class="fa-solid fa-circle-notch animate-spin text-2xl text-indigo-500 mb-2"></i>
+            <p>กำลังเตรียมข้อมูลงานค้าง...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PAGE 2: ALL SUBJECTS (รายการงานค้างทั้งหมด) ================= -->
+    <section id="page-all-subjects" class="page-transition hidden-page space-y-6">
+      
+      <!-- Upper Section: Headers & Double Circle Buttons -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-100">รายการงานค้างทั้งหมด</h2>
+          <p class="text-xs text-slate-400">จัดการรายวิชาและควบคุมงานค้าง</p>
+        </div>
+        
+        <!-- Double Circle Action Buttons -->
+        <div class="flex items-center gap-2">
+          <!-- Pencil Button -->
+          <button id="master-view-subjects-btn" class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 text-slate-300 hover:text-indigo-400 active:scale-90 hover:border-indigo-500/40 transition-all flex items-center justify-center shadow-lg relative" title="ดูรายละเอียดวิชาที่เคยบันทึก">
+            <i class="fa-solid fa-pencil text-sm"></i>
+          </button>
+          
+          <!-- Gear Button -->
+          <button id="master-options-btn" class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 text-slate-300 hover:text-purple-400 active:scale-90 hover:border-purple-500/40 transition-all flex items-center justify-center shadow-lg" title="จัดการวิชาเพิ่มเติม">
+            <i class="fa-solid fa-cog text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Add Subject Card -->
+      <div class="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <i class="fa-solid fa-plus-circle text-lg"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-semibold text-slate-300">เพิ่มรายวิชาใหม่</h4>
+            <p class="text-xs text-slate-500">สร้างโครงสร้างวิชาเพิ่มทีละรายวิชา</p>
+          </div>
+        </div>
+        <button id="add-subject-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-slate-100 text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md flex items-center gap-1">
+          <i class="fa-solid fa-plus"></i> เพิ่มวิชา
+        </button>
+      </div>
+
+      <!-- List of Subjects Container -->
+      <div class="space-y-4" id="subjects-list-container">
+        <!-- Injected via JS -->
+        <div class="text-center py-8 text-slate-500">
+          <i class="fa-solid fa-folder-open text-4xl mb-2 opacity-35"></i>
+          <p>ไม่มีรายวิชาในระบบ กรุณากดปุ่มเพิ่มวิชาด้านบน</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PAGE 3: DETAILED SUBJECT VIEW (ตารางงานรายวิชา) ================= -->
+    <section id="page-subject-detail" class="page-transition hidden-page space-y-6">
+      
+      <!-- Navigation Back Bar -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <button onclick="switchPage('all-subjects')" class="flex items-center gap-2 text-slate-400 hover:text-indigo-400 active:scale-95 transition-colors">
+          <i class="fa-solid fa-chevron-left"></i>
+          <span class="text-sm font-medium">ย้อนกลับ</span>
+        </button>
+        <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-500/10 text-indigo-300 rounded-full border border-indigo-500/20" id="detail-badge-code">วิชา-000000</span>
+      </div>
+
+      <!-- Subject Header -->
+      <div>
+        <h2 class="text-2xl font-bold text-slate-100" id="detail-subject-title">ชื่อรายวิชาเรียน</h2>
+        <p class="text-xs text-slate-400 mt-1">นี่คือรายการงานและแบบฝึกหัดทั้งหมดของคุณในวิชานี้</p>
+      </div>
+
+      <!-- Mobile Scrollable Table Wrap -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm whitespace-nowrap">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-300 text-xs uppercase tracking-wider font-semibold">
+              <tr>
+                <th class="p-4 text-center">วันที่สั่ง</th>
+                <th class="p-4">ชื่องาน</th>
+                <th class="p-4">กำหนดส่ง</th>
+                <th class="p-4">ประเภท</th>
+                <th class="p-4 text-center">ส่งงาน</th>
+              </tr>
+            </thead>
+            <tbody id="detail-tasks-tbody" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Dynamically Populated Rows -->
+            </tbody>
+          </table>
+        </div>
+        
+        <div id="no-tasks-placeholder" class="text-center p-8 text-slate-500 hidden">
+          <i class="fa-solid fa-file-signature text-3xl mb-2 text-slate-600"></i>
+          <p class="text-xs">ยังไม่มีข้อมูลชื่องานที่บันทึกไว้ในวิชานี้</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PAGE 4: MISSION GAME (หน้าเกมภารกิจ) ================= -->
+    <section id="page-missions" class="page-transition hidden-page space-y-6">
+      
+      <!-- Gamified Colorful Badge Header -->
+      <div class="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 border border-indigo-500/20 rounded-2xl p-6 relative overflow-hidden glow-indigo">
+        <div class="absolute -right-10 -top-10 text-9xl text-indigo-500/10 pointer-events-none transform rotate-12">
+          <i class="fa-solid fa-gamepad"></i>
+        </div>
+
+        <div class="flex items-center gap-4 mb-5">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 border border-indigo-400/50 flex flex-col items-center justify-center text-slate-100 shadow-lg animate__animated animate__pulse animate__infinite">
+            <span class="text-[10px] font-bold text-indigo-200">LEVEL</span>
+            <span class="text-2xl font-black font-mono leading-none" id="mission-lvl-text">1</span>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-bold text-slate-100">กระดานเกียรติยศนักเรียน</h3>
+            <p class="text-xs text-slate-400">ส่งงานตรงต่อเวลาเพื่อสะสม EXP และเลื่อนระดับ</p>
+          </div>
+        </div>
+
+        <!-- Level Progress Bar -->
+        <div class="space-y-2">
+          <div class="flex justify-between text-xs font-semibold">
+            <span class="text-indigo-400">EXP Progress</span>
+            <span class="text-slate-300" id="mission-exp-text">20 / 100 XP</span>
+          </div>
+          <div class="w-full bg-slate-950/80 rounded-full h-3 p-0.5 border border-slate-800">
+            <div id="mission-exp-bar" class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full transition-all duration-700 ease-out" style="width: 20%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weekly / Daily Missions Section -->
+      <div class="space-y-4">
+        <h4 class="text-sm font-bold text-slate-400 tracking-wider uppercase flex items-center gap-2">
+          <i class="fa-solid fa-calendar-check text-emerald-400"></i>
+          ภารกิจประจำวันและรายสัปดาห์
+        </h4>
+
+        <!-- Main Daily Mission Card -->
+        <div class="bg-slate-900 border border-emerald-500/20 hover:border-emerald-500/40 transition-colors p-4 rounded-2xl flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <i class="fa-solid fa-calculator text-lg"></i>
+            </div>
+            <div>
+              <span class="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500/20 text-emerald-300 rounded-full uppercase">ภารกิจหลักรายวัน</span>
+              <h5 class="text-sm font-bold text-slate-200 mt-1">ทำการบ้านคณิตเสร็จ</h5>
+              <p class="text-xs text-slate-400">+10 EXP • รีเซ็ตทุกวัน</p>
+            </div>
+          </div>
+          <button id="daily-math-btn" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-100 text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md">
+            สำเร็จภารกิจ
+          </button>
+        </div>
+
+        <!-- Side Quests -->
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-4 opacity-75">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+              <i class="fa-solid fa-book-open text-lg"></i>
+            </div>
+            <div>
+              <span class="px-1.5 py-0.5 text-[9px] font-bold bg-slate-800 text-slate-300 rounded-full uppercase">ภารกิจพิเศษ</span>
+              <h5 class="text-sm font-bold text-slate-200 mt-1">อ่านทบทวนวิชาภาษาไทย</h5>
+              <p class="text-xs text-slate-400">+15 EXP • ภารกิจจำกัดเวลา</p>
+            </div>
+          </div>
+          <button onclick="confirmMissionCompletion('อ่านทบทวนวิชาภาษาไทย', 15)" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-slate-100 text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md">
+            ทำสำเร็จ
+          </button>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-4 opacity-75">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+              <i class="fa-solid fa-flask text-lg"></i>
+            </div>
+            <div>
+              <span class="px-1.5 py-0.5 text-[9px] font-bold bg-slate-800 text-slate-300 rounded-full uppercase">ภารกิจวิทยาศาสตร์</span>
+              <h5 class="text-sm font-bold text-slate-200 mt-1">ทำการบ้านวิทยาศาสตร์</h5>
+              <p class="text-xs text-slate-400">+15 EXP • สัปดาห์นี้</p>
+            </div>
+          </div>
+          <button onclick="confirmMissionCompletion('ทำการบ้านวิทยาศาสตร์', 15)" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-slate-100 text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md">
+            ทำสำเร็จ
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= DIALOG / CUSTOM POPUPS (NO ALERTS!) ================= -->
+  
+  <!-- Backdrop for popups -->
+  <div id="modal-backdrop" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    
+    <!-- A. Confirmation Dialog -->
+    <div id="confirm-dialog" class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl hidden transform transition-all animate__animated anim
